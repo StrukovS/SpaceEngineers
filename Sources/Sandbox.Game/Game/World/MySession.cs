@@ -1,5 +1,7 @@
 ﻿#region Using
 
+using System.Threading;
+
 using Sandbox.Common;
 
 using Sandbox.Common.ObjectBuilders;
@@ -77,6 +79,100 @@ namespace Sandbox.Game.World
     [StaticEventOwner]
     public sealed partial class MySession : IMySession
     {
+
+        private static VRage.FileSystem.LoadFilesUsageData currentFilesUsageData = null;
+        public static VRage.FileSystem.LoadFilesUsageData CurrentFilesUsageData
+        {
+            get { return currentFilesUsageData; }
+        }
+
+        private static VRage.FileSystem.LoadFilesUsageData loadedFilesUsageData = null;
+        public static VRage.FileSystem.LoadFilesUsageData LoadedFilesUsageData
+        {
+            get { return loadedFilesUsageData; }
+        }
+
+        private static DateTime loadStart;
+        private static System.TimeSpan loadingTime;
+        private const string StatisticFileName = "load.stat";
+
+        private static DateTime lastUIDrawTime = DateTime.Now;
+        private static readonly System.TimeSpan uiRedrawInterval = new System.TimeSpan( 0, 0, 1 );
+        private static void TryDrawUI()
+        {
+            if ( ( MySandboxGame.Static.UpdateThread != Thread.CurrentThread ) || MyGuiSandbox.IsDrawProcessing )
+                return;
+            var now = DateTime.Now;
+            if ( ( now - lastUIDrawTime ) < uiRedrawInterval )
+                return;
+            lastUIDrawTime = now;
+
+            // DIRTY HACK!!!
+            var updateTime = MySandboxGame.Static.GetNewTimestamp();
+            MyGuiSandbox.Draw();
+            VRageRender.MyRenderProxy.AfterUpdate( updateTime );
+        }
+
+        class LoadingProgressUpdateFileSystemHook :
+            VRage.FileSystem.MyFileSystem.IMyFileSystemHook
+        {
+            public Stream Open( string path, FileMode mode, FileAccess access, FileShare share )
+            {
+                TryDrawUI();
+                return null;
+            }
+        }
+
+        static LoadingProgressUpdateFileSystemHook loadingProgressUpdateFileSystemHook = new LoadingProgressUpdateFileSystemHook();
+        static bool loadingProgressUpdateFileSystemHookInstalled;
+
+        private static void NotifyLoadComplited()
+        {
+            VRage.FileSystem.MyFileSystem.LoadFilesUsage = null;
+            loadingTime = DateTime.Now - loadStart;
+
+            var notification = new MyHudNotification( MyStringId.GetOrCompute( "WorldLoadedIn_{0}" ), 30000 );
+            notification.SetTextFormatArguments( loadingTime );
+            MyHud.Notifications.Add( notification );
+
+            if ( loadedFilesUsageData != null )
+            {
+                VRage.FileSystem.MyFileSystem.FileSystemFeeder.FlushCache( loadedFilesUsageData );
+            }
+
+            if ( loadingProgressUpdateFileSystemHookInstalled )
+            {
+                VRage.FileSystem.MyFileSystem.RemoveHook( loadingProgressUpdateFileSystemHook );
+            }
+        }
+
+        public static void NotifyLoadStart( string sessionPath )
+        {
+            loadStart = DateTime.Now;
+
+            //loadedFilesUsageData = null;
+
+            // try load recorded files usage, and start caching if loaded
+            loadedFilesUsageData = VRage.FileSystem.LoadFilesUsageData.Load( Path.Combine( sessionPath, StatisticFileName ) );
+            if ( loadedFilesUsageData != null )
+            {
+                VRage.FileSystem.MyFileSystem.FileSystemFeeder.Feed( loadedFilesUsageData, new System.TimeSpan( 0, 5, 0 ) );
+                loadingProgressUpdateFileSystemHookInstalled = VRage.FileSystem.MyFileSystem.InstallHook( loadingProgressUpdateFileSystemHook );
+            } else
+            {
+                loadingProgressUpdateFileSystemHookInstalled = false;
+            }
+
+            // start record files usage
+            currentFilesUsageData = new VRage.FileSystem.LoadFilesUsageData();
+            VRage.FileSystem.MyFileSystem.LoadFilesUsage = currentFilesUsageData;
+        }
+
+        private static void NotifyUnload()
+        {
+            loadedFilesUsageData = null;
+        }
+
         const string SAVING_FOLDER = ".new";
 
         public const int MIN_NAME_LENGTH = 5;
@@ -707,6 +803,7 @@ namespace Sandbox.Game.World
                     if (m_framesToReady == 0)
                     {
                         Ready = true;
+                        NotifyLoadComplited();
                         MyAudio.Static.PlayMusic(new MyMusicTrack() { TransitionCategory = MyStringId.GetOrCompute("Default") });
                         if (OnReady != null)
                             OnReady();
@@ -1028,6 +1125,8 @@ namespace Sandbox.Game.World
         public static void Load(string sessionPath, MyObjectBuilder_Checkpoint checkpoint, ulong checkpointSizeInBytes)
         {
             ProfilerShort.Begin("MySession.Static.Load");
+
+            NotifyLoadStart( sessionPath );
 
             MyLog.Default.WriteLineAndConsole("Loading session: " + sessionPath);
 
@@ -1877,6 +1976,11 @@ namespace Sandbox.Game.World
                 snapshot.TargetDir = CurrentPath;
                 snapshot.SavingDir = GetTempSavingFolder();
 
+                if ( CurrentFilesUsageData != null )
+                {
+                    snapshot.AdditionalFiles[ StatisticFileName ] = CurrentFilesUsageData.Encode();
+                }
+
                 try
                 {
                     MySandboxGame.Log.WriteLine("Making world state snapshot.");
@@ -2150,6 +2254,7 @@ namespace Sandbox.Game.World
 
         public void Unload()
         {
+            NotifyUnload();
             if (MySandboxGame.IsPaused)
             {
                 MySandboxGame.UserPauseToggle();

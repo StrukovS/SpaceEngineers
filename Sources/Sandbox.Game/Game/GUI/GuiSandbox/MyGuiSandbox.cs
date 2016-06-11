@@ -233,9 +233,26 @@ namespace Sandbox.Graphics.GUI
         }
 
         //  Draw all screens
+        private static bool drawProcessing = false;
+        public static bool IsDrawProcessing
+        {
+            get
+            {
+                return drawProcessing;
+            }
+        }
+
         public static void Draw()
         {
-            Gui.Draw();
+            drawProcessing = true;
+            try
+            {
+                Gui.Draw();
+            }
+            finally
+            {
+                drawProcessing = false;
+            }
         }
 
         public static void BackToIntroLogos(Action afterLogosAction)
