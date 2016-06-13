@@ -402,10 +402,27 @@ namespace Sandbox.Game.Gui
 
             LastBackgroundTexture = m_backgroundScreenTexture;
 
-            //  Loading Please Wait
-            MyGuiManager.DrawString(m_fontId, MyTexts.Get(MyCommonTexts.LoadingPleaseWaitUppercase),
-                MyGuiConstants.LOADING_PLEASE_WAIT_POSITION, MyGuiSandbox.GetDefaultTextScaleWithLanguage() * MyGuiConstants.LOADING_PLEASE_WAIT_SCALE, new Color(MyGuiConstants.LOADING_PLEASE_WAIT_COLOR * m_transitionAlpha),
-                MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM);
+            if ( MySession.LoadedFilesUsageData != null )
+            {
+                var progress = ( ( double ) MySession.CurrentFilesUsageData.BytesProcessed / MySession.LoadedFilesUsageData.BytesProcessed );
+                if ( progress < 0.0f )
+                    progress = 0.0f;
+                if ( progress > 1.0f )
+                    progress = 1.0f;
+                //progress = System.Mathf.Clamp( progress, 0.0f, 1.0f );
+                var text = string.Format( "{0}, {1:0.00}% DONE", MyTexts.Get( MyCommonTexts.LoadingPleaseWaitUppercase ), progress * 100.0f );
+                //  Loading Please Wait
+                MyGuiManager.DrawString( m_fontId, new StringBuilder( text ),
+                    MyGuiConstants.LOADING_PLEASE_WAIT_POSITION, MyGuiSandbox.GetDefaultTextScaleWithLanguage() * MyGuiConstants.LOADING_PLEASE_WAIT_SCALE, new Color( MyGuiConstants.LOADING_PLEASE_WAIT_COLOR * m_transitionAlpha ),
+                    MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM );
+            }
+            else
+            {
+                //  Loading Please Wait
+                MyGuiManager.DrawString( m_fontId, MyTexts.Get( MyCommonTexts.LoadingPleaseWaitUppercase ),
+                    MyGuiConstants.LOADING_PLEASE_WAIT_POSITION, MyGuiSandbox.GetDefaultTextScaleWithLanguage() * MyGuiConstants.LOADING_PLEASE_WAIT_SCALE, new Color( MyGuiConstants.LOADING_PLEASE_WAIT_COLOR * m_transitionAlpha ),
+                    MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM );
+            }
 
             // Draw quote
             {

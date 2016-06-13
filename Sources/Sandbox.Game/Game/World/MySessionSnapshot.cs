@@ -27,6 +27,8 @@ namespace Sandbox.Game.World
         public MyObjectBuilder_Sector SectorSnapshot;
         public Dictionary<string, byte[]> CompressedVoxelSnapshots;
 
+        public Dictionary<string, byte[]> AdditionalFiles = new Dictionary<string, byte[]>();
+
         public ulong SavedSizeInBytes // Set after snapshots has been saved.
         {
             get;
@@ -65,6 +67,7 @@ namespace Sandbox.Game.World
                         ulong sectorSizeInBytes = 0;
                         ulong checkpointSizeInBytes = 0;
                         ulong voxelSizeInBytes = 0;
+                        ulong addFilesInBytes = 0;
                         success = MyLocalCache.SaveSector(SectorSnapshot, SavingDir, Vector3I.Zero, out sectorSizeInBytes) &&
                                   MyLocalCache.SaveCheckpoint(CheckpointSnapshot, SavingDir, out checkpointSizeInBytes) &&
                                   MyLocalCache.SaveLastLoadedTime(TargetDir, DateTime.Now);
@@ -78,9 +81,18 @@ namespace Sandbox.Game.World
                         }
                         if (success && Sync.IsServer)
                             success = MyLocalCache.SaveLastSessionInfo(TargetDir);
+                        if ( success && AdditionalFiles != null )
+                        {
+                            foreach (var entry in AdditionalFiles)
+                            {
+                                addFilesInBytes += ( ulong ) entry.Value.Length;
+                                success = success && SaveAdditionalFileSnapshot(entry.Key, entry.Value);
+                            }
+                        }
+
 
                         if (success)
-                            SavedSizeInBytes = sectorSizeInBytes + checkpointSizeInBytes + voxelSizeInBytes;
+                            SavedSizeInBytes = sectorSizeInBytes + checkpointSizeInBytes + voxelSizeInBytes + addFilesInBytes;
                     }
                     catch (Exception ex)
                     {
@@ -128,6 +140,21 @@ namespace Sandbox.Game.World
                 MySandboxGame.Log.WriteLine("Session snapshot save - END");
             }
             return success;
+        }
+
+        private bool SaveAdditionalFileSnapshot( string storageName, byte[] snapshotData )
+        {
+            var path = Path.Combine( SavingDir, storageName );
+            try { File.WriteAllBytes(path, snapshotData); }
+            catch (Exception ex)
+            {
+                MySandboxGame.Log.WriteLine(string.Format("Failed to write additional file '{0}'", path));
+                MySandboxGame.Log.WriteLine(ex);
+                ReportFileError(ex);
+                return false;
+            }
+
+            return true;
         }
 
         private bool SaveVoxelSnapshot(string storageName, byte[] snapshotData)

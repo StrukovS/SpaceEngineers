@@ -53,52 +53,59 @@ namespace SpaceEngineers
         //  Main method
         static void Main(string[] args)
         {
-            SpaceEngineersGame.SetupBasicGameInfo();
-
-            m_startup = new MyCommonProgramStartup(args);
-            if (m_startup.PerformReporting()) return;
-            m_startup.PerformAutoconnect();
-            if (!m_startup.CheckSingleInstance()) return;
-            var appDataPath = m_startup.GetAppDataPath();
-            MyInitializer.InvokeBeforeRun(AppId, MyPerGameSettings.BasicGameInfo.ApplicationName, appDataPath);
-            MyInitializer.InitCheckSum();
-            m_startup.InitSplashScreen();
-            if (!m_startup.Check64Bit()) return;
-
-            m_startup.DetectSharpDxLeaksBeforeRun();
-            using (MySteamService steamService = new MySteamService(MySandboxGame.IsDedicated, AppId))
+            try
             {
-                m_renderer = null;
-                SpaceEngineersGame.SetupPerGameSettings();
-                SpaceEngineersGame.SetupRender();
-                InitializeRender();
+                SpaceEngineersGame.SetupBasicGameInfo();
 
-                VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("MyProgram.Init");
+                m_startup = new MyCommonProgramStartup( args );
+                if ( m_startup.PerformReporting() ) return;
+                m_startup.PerformAutoconnect();
+                if ( !m_startup.CheckSingleInstance() ) return;
+                var appDataPath = m_startup.GetAppDataPath();
+                MyInitializer.InvokeBeforeRun( AppId, MyPerGameSettings.BasicGameInfo.ApplicationName, appDataPath );
+                MyInitializer.InitCheckSum();
+                m_startup.InitSplashScreen();
+                if ( !m_startup.Check64Bit() ) return;
 
-                VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("MySteam.Init()");
-                if (!m_startup.CheckSteamRunning(steamService)) return;
-                VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-
-                VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock("new MySandboxGame()");
-
-                VRageGameServices services = new VRageGameServices(steamService);
-
-                if (!MySandboxGame.IsDedicated)
-                    MyFileSystem.InitUserSpecific(steamService.UserId.ToString());
-
-                using (SpaceEngineersGame game = new SpaceEngineersGame(services, args))
+                m_startup.DetectSharpDxLeaksBeforeRun();
+                using ( MySteamService steamService = new MySteamService( MySandboxGame.IsDedicated, AppId ) )
                 {
+                    m_renderer = null;
+                    SpaceEngineersGame.SetupPerGameSettings();
+                    SpaceEngineersGame.SetupRender();
+                    InitializeRender();
+
+                    VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock( "MyProgram.Init" );
+
+                    VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock( "MySteam.Init()" );
+                    if ( !m_startup.CheckSteamRunning( steamService ) ) return;
                     VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-                    VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
-                    game.Run(disposeSplashScreen: m_startup.DisposeSplashScreen);
+
+                    VRageRender.MyRenderProxy.GetRenderProfiler().StartProfilingBlock( "new MySandboxGame()" );
+
+                    VRageGameServices services = new VRageGameServices( steamService );
+
+                    if ( !MySandboxGame.IsDedicated )
+                        MyFileSystem.InitUserSpecific( steamService.UserId.ToString() );
+
+                    using ( SpaceEngineersGame game = new SpaceEngineersGame( services, args ) )
+                    {
+                        VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
+                        VRageRender.MyRenderProxy.GetRenderProfiler().EndProfilingBlock();
+                        game.Run( disposeSplashScreen: m_startup.DisposeSplashScreen );
+                    }
                 }
-            }
-            m_startup.DetectSharpDxLeaksAfterRun();
+                m_startup.DetectSharpDxLeaksAfterRun();
 
 #if PROFILING
             MyPerformanceTimer.WriteToLog();
 #endif
-            MyInitializer.InvokeAfterRun();
+                MyInitializer.InvokeAfterRun();
+            }
+            finally
+            {
+                MyFileSystem.Done();
+            }
         }
 
         private static void InitializeRender()
