@@ -8,30 +8,23 @@ namespace Sandbox.Graphics.GUI
 {
     class MyTreeViewBody : MyTreeViewBase
     {
-        private Vector2 m_position;
         private Vector2 m_size;
         private Vector2 m_realSize;
 
-        public MyTreeViewBody(MyTreeView treeView, Vector2 position, Vector2 size)
+        public MyTreeViewBody(MyTreeView treeView, Vector2 size)
         {
             TreeView = treeView;
-            m_position = position;
             m_size = size;
         }
 
-        public void Layout(Vector2 scroll)
+        public void Layout( Vector2 position, Vector2 scroll )
         {
-            m_realSize = LayoutItems(m_position - scroll);
+            m_realSize = LayoutItems( position - scroll, 0 );
         }
 
         public void Draw(float transitionAlpha)
         {
             DrawItems(transitionAlpha);
-        }
-
-        public Vector2 GetPosition()
-        {
-            return m_position;
         }
 
         public Vector2 GetSize()
@@ -47,11 +40,6 @@ namespace Sandbox.Graphics.GUI
         public Vector2 GetRealSize()
         {
             return m_realSize;
-        }
-
-        public void SetPosition(Vector2 position)
-        {
-            m_position = position;
         }
     }
 }

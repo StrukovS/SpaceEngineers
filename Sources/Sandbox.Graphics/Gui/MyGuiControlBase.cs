@@ -268,10 +268,26 @@ namespace Sandbox.Graphics.GUI
 
         public event Action<MyGuiControlBase, NameChangedArgs> NameChanged;
 
+        IMyGuiControlsOwner owner;
         public IMyGuiControlsOwner Owner
         {
-            get;
-            private set;
+            get
+            {
+                return owner;
+            }
+            private set
+            {
+                if ( owner == value )
+                    return;
+                owner = value;
+
+                OnOwnerChanged();
+            }
+        }
+
+        protected virtual void OnOwnerChanged()
+        {
+
         }
 
         protected readonly MyGuiControls Elements;

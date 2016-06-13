@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using VRageMath;
 
 namespace Sandbox.Graphics.GUI
 {
-    class MyGuiControlTreeView : MyGuiControlBase, ITreeView
+    public class MyGuiControlTreeView : MyGuiControlBase, ITreeView
     {
         //public bool Visible;
         public bool WholeRowHighlight;
@@ -14,10 +15,10 @@ namespace Sandbox.Graphics.GUI
         private MyTreeView m_treeView;
 
         public MyGuiControlTreeView(
-            Vector2 position,
-            Vector2 size,
-            Vector4 backgroundColor,
-            bool canHandleKeyboardActiveControl)
+            Vector2? position = null,
+            Vector2? size = null,
+            Vector4? backgroundColor = null,
+            bool canHandleKeyboardActiveControl = true )
             : base( position: position,
                     size: size,
                     colorMask: null,
@@ -27,10 +28,31 @@ namespace Sandbox.Graphics.GUI
             Visible = true;
             Name = "TreeView";
 
-            m_treeBackgroundColor = backgroundColor;
+            m_treeBackgroundColor = backgroundColor ?? Vector4.One;
 
-            m_treeView = new MyTreeView(this, GetPositionAbsolute() - Size / 2, Size);
+            m_treeView = new MyTreeView(this);
+            m_treeView.OnSelectionChanged += OnSelectionChangedImpl;
         }
+
+        public IEnumerable<MyTreeViewItem> Selection
+        {
+            get { return m_treeView.Selection; }
+            set
+            {
+                m_treeView.Selection = value;
+            }
+        }
+
+        public Action<MyGuiControlTreeView, IEnumerable<MyTreeViewItem>> OnSelectionChanged;
+
+        private void OnSelectionChangedImpl( MyTreeView tv, IEnumerable<MyTreeViewItem> oldSel )
+        {
+            if ( OnSelectionChanged != null )
+            {
+                OnSelectionChanged( this, oldSel );
+            }
+        }
+
 
         public MyTreeViewItem AddItem(StringBuilder text, string icon, Vector2 iconSize, string expandIcon, string collapseIcon, Vector2 expandIconSize)
         {
@@ -42,24 +64,25 @@ namespace Sandbox.Graphics.GUI
             m_treeView.DeleteItem(item);
         }
 
-        public MyTreeViewItem GetFocusedItem()
-        {
-            return m_treeView.FocusedItem;
-        }
-
         public void ClearItems()
         {
             m_treeView.ClearItems();
         }
 
-        public override void Draw(float transitionAlpha, float backgroundTransitionAlpha)
+        public IEnumerable<MyTreeViewItem> Items
+        {
+            get { return m_treeView.Items; }
+        }
+
+        public override void Draw( float transitionAlpha, float backgroundTransitionAlpha )
         {
             if (Visible)
             {
                 //MyGUIHelper.FillRectangle(GetPositionAbsolute() - m_size.Value / 2, m_size.Value, GetColorAfterTransitionAlpha(m_treeBackgroundColor));
 
+                var positionTopLeft = GetPositionAbsoluteTopLeft();
                 m_treeView.Layout();
-                m_treeView.Draw(transitionAlpha);
+                m_treeView.Draw( transitionAlpha );
             }
             else
             {
@@ -67,6 +90,11 @@ namespace Sandbox.Graphics.GUI
             }
 
             base.Draw(transitionAlpha, backgroundTransitionAlpha);
+        }
+
+        public MyTreeViewBase TreeView
+        {
+            get { return m_treeView.Body; }
         }
 
         public override MyGuiControlBase HandleInput()
@@ -106,26 +134,13 @@ namespace Sandbox.Graphics.GUI
             return m_treeView.GetItemCount();
         }
 
-        protected override void OnPositionChanged()
-        {
-            base.OnPositionChanged();
-            m_treeView.SetPosition(GetPositionAbsolute() - Size / 2);
-        }
-
-        public void SetSize(Vector2 size)
-        {
-            Size = size;
-            m_treeView.SetPosition(GetPositionAbsolute() - Size / 2);
-            m_treeView.SetSize(size);
-        }
-
         public void FilterTree(Predicate<MyTreeViewItem> itemFilter)
         {
             MyTreeView.FilterTree(this, itemFilter);
         }
     }
 
-    interface ITreeView
+    public interface ITreeView
     {
         int GetItemCount();
         MyTreeViewItem GetItem(int index);
@@ -234,6 +249,107 @@ namespace Sandbox.Graphics.GUI
             }
 
             return new Vector2(x, y);
+        }
+    }
+
+    public class MyGuiControlTreeViewIncrementalSearch
+    {
+        private MyGuiControlTreeView treeView;
+
+        public MyGuiControlTreeViewIncrementalSearch( MyGuiControlTreeView treeView )
+        {
+            this.treeView = treeView;
+        }
+
+        private string searchText = string.Empty;
+        private bool oldSearchSpecified;
+        
+        private List<string> splittedSearch = new List<string>();
+
+        struct NodeState
+        {
+            public bool visible;
+            public bool expanded;
+        }
+
+        Dictionary<MyTreeViewItem, NodeState> nodesState = new Dictionary<MyTreeViewItem, NodeState>();
+
+        private void StoreNodesState( IEnumerable<MyTreeViewItem> items )
+        {
+            foreach ( var node in items )
+            {
+                nodesState[ node ] = new NodeState() { visible = node.Visible, expanded = node.IsExpanded };
+                StoreNodesState( node.Items );
+            }
+        }
+
+        private void EnsireVisibility( MyTreeViewItem node )
+        {
+            do
+            {
+                node.IsExpanded = true;
+                node.Visible = true;
+                node = node.Parent as MyTreeViewItem;
+            } while ( node != null );
+        }
+
+        private bool IsShouldShow( string text )
+        {
+            foreach ( var str in splittedSearch )
+            {
+                if ( text.Contains( str ) )
+                    return true;
+            }
+            
+            return false;
+        }
+
+        public string SearchText
+        {
+            get { return searchText; }
+            set
+            {
+                var newSearchStr = string.IsNullOrEmpty( value ) ? string.Empty : value.ToLower();
+                if ( newSearchStr == searchText )
+                    return;
+
+                searchText = string.IsNullOrEmpty( value ) ? string.Empty : value.ToLower();
+                splittedSearch = searchText.Split( ' ' ).ToList();
+
+                var searchSpecified = !string.IsNullOrEmpty( searchText );
+                if ( oldSearchSpecified != searchSpecified )
+                {
+                    oldSearchSpecified = searchSpecified;
+                    foreach ( var entry in nodesState )
+                    {
+                        entry.Key.Visible = entry.Value.visible;
+                        entry.Key.IsExpanded = entry.Value.expanded;
+                    }
+
+                    if ( searchSpecified )
+                    {
+                        nodesState.Clear();
+                        StoreNodesState( treeView.Items );
+                    }
+                }
+
+                if ( searchSpecified )
+                {
+                    foreach ( var entry in nodesState )
+                    {
+                        entry.Key.Visible = false;
+                        entry.Key.IsExpanded = false;
+                    }
+
+                    foreach ( var entry in nodesState )
+                    {
+                        if ( !IsShouldShow( entry.Key.Text.ToString().ToLower() ) )
+                            continue;
+
+                        EnsireVisibility( entry.Key );
+                    }
+                }
+            }
         }
     }
 }
