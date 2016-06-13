@@ -5,17 +5,26 @@ using VRage.Input;
 using VRage.Utils;
 using VRageMath;
 
+using System.Linq;
+
 namespace Sandbox.Graphics.GUI
 {
-    class MyTreeViewItem : MyTreeViewBase
+    public class MyTreeViewItem : MyTreeViewBase
     {
-        public EventHandler _Action;
+        public EventHandler Action;
         public EventHandler RightClick;
         public MyTreeViewItemDragAndDrop DragDrop { get; set; }
 
         public object Tag;
         public bool Visible;
         public bool Enabled;
+        
+        private bool selected;
+        public bool Selected
+        {
+            get { return selected; }
+            internal set { selected = value; }
+        }
 
         public bool IsExpanded;
         public StringBuilder Text;
@@ -23,6 +32,8 @@ namespace Sandbox.Graphics.GUI
         public MyIconTexts IconTexts;
 
         public MyTreeViewBase Parent;
+
+        public Vector4 TextColor = Vector4.One;
 
         private readonly float padding = 0.002f;
         private readonly float spacing = 0.01f;
@@ -72,16 +83,28 @@ namespace Sandbox.Graphics.GUI
         }
         private Vector2 GetTextPosition()
         {
-            float iconOffset = m_icon != null ? m_iconSize.X + spacing : 0;
+            float iconOffset = !string.IsNullOrEmpty( m_icon ) ? m_iconSize.X + spacing : 0;
             return new Vector2(padding + m_expandIconSize.X + spacing + iconOffset, (m_currentSize.Y - m_currentTextSize.Y) / 2);
+        }
+
+        public int GetLevel()
+        {
+            if ( Parent == null )
+                return 0;
+
+            var item = Parent as MyTreeViewItem;
+            if ( item != null )
+                return item.GetLevel() + 1;
+
+            return 0;
         }
 
         public Vector2 GetOffset()
         {
-            return new Vector2(padding + m_expandIconSize.X / 2, 2.0f * padding + GetHeight());
+            return new Vector2( padding + m_expandIconSize.X / 2, 2.0f * padding + GetHeight() );
         }
 
-        public Vector2 LayoutItem(Vector2 origin)
+        public Vector2 LayoutItem(Vector2 origin, int level)
         {
             m_currentOrigin = origin;
 
@@ -102,7 +125,7 @@ namespace Sandbox.Graphics.GUI
             if (IsExpanded)
             {
                 Vector2 offset = GetOffset();
-                Vector2 itemsSize = LayoutItems(origin + GetOffset());
+                Vector2 itemsSize = LayoutItems( origin + GetOffset(), level + 1 );
 
                 width = Math.Max(width, offset.X + itemsSize.X);
                 height += itemsSize.Y;
@@ -125,12 +148,12 @@ namespace Sandbox.Graphics.GUI
 
             Vector4 baseColor = Enabled ? Vector4.One : MyGuiConstants.TREEVIEW_DISABLED_ITEM_COLOR;
 
-            if (TreeView.FocusedItem == this)
+            if ( Selected )
             {
                 Color selectedColor = TreeView.GetColor(MyGuiConstants.TREEVIEW_SELECTED_ITEM_COLOR * baseColor, transitionAlpha);
                 if (TreeView.WholeRowHighlight())
                 {
-                    MyGUIHelper.FillRectangle(new Vector2(TreeView.GetPosition().X, m_currentOrigin.Y), new Vector2(TreeView.GetBodySize().X, m_currentSize.Y), selectedColor);
+                    MyGUIHelper.FillRectangle(new Vector2(TreeView.Position.X, m_currentOrigin.Y), new Vector2(TreeView.GetBodySize().X, m_currentSize.Y), selectedColor);
                 }
                 else
                 {
@@ -146,22 +169,26 @@ namespace Sandbox.Graphics.GUI
                                              TreeView.GetColor(expandColor, transitionAlpha), MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
             }
 
-            if (m_icon == null)
-            { // texture is still being loaded on other thread
-                DrawLoadingIcon(baseColor, iconPosition, transitionAlpha);
-            }
-            else
+            if ( m_icon != string.Empty )
             {
-                MyGuiManager.DrawSpriteBatch(m_icon, m_currentOrigin + iconPosition, m_iconSize,
-                                                TreeView.GetColor(baseColor, transitionAlpha),
-                                                MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+                if ( m_icon == null )
+                { // texture is still being loaded on other thread
+                    DrawLoadingIcon( baseColor, iconPosition, transitionAlpha );
+                }
+                else
+                {
+                    MyGuiManager.DrawSpriteBatch( m_icon, m_currentOrigin + iconPosition, m_iconSize,
+                                                    TreeView.GetColor( baseColor, transitionAlpha ),
+                                                    MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP );
+                }
             }
 
-            Vector4 textColor = (isHighlighted) ? MyGuiConstants.CONTROL_MOUSE_OVER_BACKGROUND_COLOR_MULTIPLIER * baseColor : MyGuiConstants.TREEVIEW_TEXT_COLOR * baseColor;
+            //Vector4 textColor = (isHighlighted) ? MyGuiConstants.CONTROL_MOUSE_OVER_BACKGROUND_COLOR_MULTIPLIER * baseColor : MyGuiConstants.TREEVIEW_TEXT_COLOR * baseColor;
+            Vector4 textColor = TreeView.GetColor( TextColor, transitionAlpha );
 
             MyGuiManager.DrawString(MyFontEnum.Blue, Text,
                                     m_currentOrigin + textPosition,
-                                    0.8f, TreeView.GetColor(textColor, transitionAlpha), MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
+                                    0.8f, textColor, MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_TOP);
 
             if (IconTexts != null)
             {
@@ -247,16 +274,36 @@ namespace Sandbox.Graphics.GUI
                 }
                 else if (TreeView.HooveredItem == this)
                 {
-                    TreeView.FocusItem(this);
+                    if ( MyInput.Static.IsAnyShiftKeyPressed() )
+                    {
+
+                    } else
+                    if ( MyInput.Static.IsAnyCtrlKeyPressed() )
+                    {
+                        var sel = TreeView.Selection.ToList();
+                        if ( sel.Contains( this ) )
+                        {
+                            sel.Remove( this );
+                        } else
+                        {
+                            sel.Add( this );
+                        }
+                        TreeView.Selection = sel;
+                    }
+                    else
+                    {
+                        TreeView.Selection = new MyTreeViewItem[] { this };
+                    }
                     captured = true;
                     MyGuiSoundManager.PlaySound(GuiSounds.MouseClick);
                 }
             }
 
             // Double click - launch Action event
-            if (Enabled && /*!captured && MyInput.Static.IsNewLeftMouseDoubleClick() && */TreeView.HooveredItem == this)
+            //if (Enabled && /*!captured && MyInput.Static.IsNewLeftMouseDoubleClick() && */TreeView.HooveredItem == this)
+            if ( Enabled && !captured && MyInput.Static.IsNewLeftMouseReleased() && TreeView.HooveredItem == this )
             {
-                if (_Action != null)
+                if (Action != null)
                 {
                     DoAction();
                 }
@@ -298,9 +345,9 @@ namespace Sandbox.Graphics.GUI
 
         public void DoAction()
         {
-            if (_Action != null)
+            if (Action != null)
             {
-                _Action(this, EventArgs.Empty);
+                Action(this, EventArgs.Empty);
             }
         }
     }

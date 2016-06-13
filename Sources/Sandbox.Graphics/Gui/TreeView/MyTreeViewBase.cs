@@ -7,18 +7,39 @@ using VRageMath;
 
 namespace Sandbox.Graphics.GUI
 {
-    class MyTreeViewBase : ITreeView
+    public class MyTreeViewBase : ITreeView
     {
         private List<MyTreeViewItem> m_items;
         public MyTreeView TreeView;
 
-        public MyTreeViewItem this[int i]
+        public IEnumerable<MyTreeViewItem> Items
+        {
+            get { return m_items; }
+        }
+
+        public void Sort( Comparison<MyTreeViewItem> sort )
+        {
+            m_items.Sort( sort );
+        }
+
+        public MyTreeViewItem this[ int i ]
         {
             get
             {
                 System.Diagnostics.Debug.Assert(i < m_items.Count);
                 return m_items[i];
             }
+        }
+
+        public MyTreeViewItem FindItemByName( string text )
+        {
+            foreach ( var myTreeViewItem in m_items )
+            {
+                if ( myTreeViewItem.Text.ToString() == text )
+                    return myTreeViewItem;
+            }
+
+            return null;
         }
 
         public MyTreeViewBase()
@@ -56,7 +77,7 @@ namespace Sandbox.Graphics.GUI
             m_items.Clear();
         }
 
-        public Vector2 LayoutItems(Vector2 origin)
+        public Vector2 LayoutItems(Vector2 origin, int level)
         {
             float width = 0;
             float height = 0;
@@ -64,7 +85,9 @@ namespace Sandbox.Graphics.GUI
             Vector2 currentOrigin = origin;
             foreach (var treeViewItem in m_items)
             {
-                Vector2 itemSize = treeViewItem.LayoutItem(origin + new Vector2(0, height));
+                var pos = origin + new Vector2( 0, height );
+                //pos.X += level * 0.01f;
+                Vector2 itemSize = treeViewItem.LayoutItem( pos, level );
 
                 width = Math.Max(width, itemSize.X);
                 height += itemSize.Y;

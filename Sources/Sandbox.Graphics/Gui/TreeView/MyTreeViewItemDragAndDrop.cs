@@ -5,7 +5,7 @@ using VRageMath;
 
 namespace Sandbox.Graphics.GUI
 {
-    class MyTreeViewItemDragAndDrop : MyGuiControlBase
+    public class MyTreeViewItemDragAndDrop : MyGuiControlBase
     {
         /// <summary>
         /// Uggly hack, this control needs contain mouse just one more frame after actual drop
