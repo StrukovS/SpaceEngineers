@@ -19,7 +19,25 @@ namespace Sandbox.Game
     {
         public string Icon;
         public bool m_useDefaultIcon = false;
-        public readonly String Description;
+        private String descriptionText;
+        private MyStringId descriptionID;
+        private String generatedDescription;
+
+        private bool m_shouldRebuildDescription = true;
+
+        public String Description
+        {
+            get
+            {
+                if ( m_shouldRebuildDescription )
+                {
+                    UpdateDescription();
+                }
+
+                return generatedDescription;
+            }
+        }
+
         private HashSet<MyDefinitionId> m_constrainedIds;
         private HashSet<MyObjectBuilderType> m_constrainedTypes;
 
@@ -42,11 +60,79 @@ namespace Sandbox.Game
         {
             Icon = icon;
             m_useDefaultIcon = icon == null;
+            descriptionID = description;
 
-            Description = MyTexts.GetString(description);
             m_constrainedIds = new HashSet<MyDefinitionId>();
             m_constrainedTypes = new HashSet<MyObjectBuilderType>();
             IsWhitelist = whitelist;
+        }
+
+        private void UpdateDescription()
+        {
+            if ( m_constrainedIds.Count + m_constrainedTypes.Count > 0 )
+            {
+                generatedDescription = string.IsNullOrEmpty( descriptionText ) ? MyTexts.GetString( descriptionID ) : descriptionText;
+
+                if ( m_constrainedTypes.Count > 0 )
+                {
+                    generatedDescription += "\r\n\r\nItem Types:\r\n";
+                    foreach ( var type in m_constrainedTypes )
+                    {
+                        // fixme: get from localization
+                        generatedDescription += String.Format( "\t{0}\r\n", type );
+                    }
+                }
+
+                if ( m_constrainedIds.Count > 0 )
+                {
+                    var itemNames = new List<string>();
+                    foreach ( var id in m_constrainedIds )
+                    {
+                        var item = MyDefinitionManager.Static.TryGetPhysicalItemDefinition( id );
+                        itemNames.Add( item != null ? item.DisplayNameText : id.ToString() );
+                    }
+
+                    itemNames.Sort();
+
+                    bool isMultyElementsPerLine = m_constrainedIds.Count > 64;
+                    generatedDescription += "\r\n\r\nItems:\r\n";
+                    int nAddedElements = 0;
+                    bool isNewLine = true;
+                    foreach ( var itemName in itemNames )
+                    {
+                        if ( isNewLine )
+                        {
+                            generatedDescription += "\t";
+                            isNewLine = false;
+                        }
+
+                        generatedDescription += itemName;
+
+                        bool shouldBreakLine = isMultyElementsPerLine ? ( nAddedElements % 3 == 0 ) : true;
+                        ++nAddedElements;
+                        if ( shouldBreakLine )
+                        {
+                            generatedDescription += "\r\n";
+                            isNewLine = true;
+                        }
+                        else
+                        {
+                            generatedDescription += ", ";
+                        }
+                    }
+                }
+
+                generatedDescription.Remove( generatedDescription.Length - 2, 2 );
+            } else
+            {
+                generatedDescription = string.IsNullOrEmpty( descriptionText ) ? MyTexts.GetString( descriptionID ) : descriptionText;
+
+                generatedDescription += "\r\n\r\nNo acceptible items or classes";
+
+            }
+
+            m_shouldRebuildDescription = false;
+
         }
 
         public MyInventoryConstraint(String description, string icon = null, bool whitelist = true)
@@ -54,7 +140,7 @@ namespace Sandbox.Game
             Icon = icon;
             m_useDefaultIcon = icon == null;
 
-            Description = description;
+            descriptionText = description;
             m_constrainedIds = new HashSet<MyDefinitionId>();
             m_constrainedTypes = new HashSet<MyObjectBuilderType>();
             IsWhitelist = whitelist;
@@ -63,6 +149,7 @@ namespace Sandbox.Game
         public MyInventoryConstraint Add(MyDefinitionId id)
         {
             m_constrainedIds.Add(id);
+            m_shouldRebuildDescription = true;
             UpdateIcon();
             return this;
         }
@@ -71,6 +158,7 @@ namespace Sandbox.Game
         {
 
             m_constrainedIds.Remove(id);
+            m_shouldRebuildDescription = true;
             UpdateIcon();
             return this;
         }
@@ -78,6 +166,7 @@ namespace Sandbox.Game
         public MyInventoryConstraint AddObjectBuilderType(MyObjectBuilderType type)
         {
             m_constrainedTypes.Add(type);
+            m_shouldRebuildDescription = true;
             UpdateIcon();
             return this;
         }
@@ -85,6 +174,7 @@ namespace Sandbox.Game
         public MyInventoryConstraint RemoveObjectBuilderType(MyObjectBuilderType type)
         {
             m_constrainedTypes.Remove(type);
+            m_shouldRebuildDescription = true;
             UpdateIcon();
             return this;
         }
