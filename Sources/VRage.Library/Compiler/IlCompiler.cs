@@ -169,7 +169,94 @@ namespace VRage.Compiler
         }
          * */
 
-        public static bool CompileFileModAPI(string assemblyName, string[] files, out Assembly assembly, List<string> errors, bool enableDebugging )
+        private static object tempFilesLocker = new object();
+        private static Dictionary<string, TempFileCollection> tempFileCollection = new Dictionary<string, TempFileCollection>();
+
+        private static void DeleteTemproaryFiles( TempFileCollection tfc )
+        {
+            foreach ( string file in tfc )
+            {
+                try
+                {
+                    if ( File.Exists( file ) )
+                        File.Delete( file );
+                }
+                catch ( Exception )
+                {
+
+                }
+            }
+        }
+
+        public static void CleanupTemproaryFiles( string localPath )
+        {
+            lock ( tempFilesLocker )
+            {
+                TempFileCollection tfc;
+                if ( tempFileCollection.TryGetValue( localPath, out tfc ) )
+                {
+                    DeleteTemproaryFiles( tfc );
+                }
+                tempFileCollection.Remove( localPath );
+            }
+        }
+
+        public static void CleanupTemproaryFiles()
+        {
+            lock ( tempFilesLocker )
+            {
+                foreach ( var tfc in tempFileCollection )
+                {
+                    try
+                    {
+                        DeleteTemproaryFiles( tfc.Value );
+                    }
+                    catch ( Exception )
+                    {
+
+                    }
+                }
+                tempFileCollection.Clear();
+            }
+        }
+
+        private static TempFileCollection GetTempFilesCollection( string localPath, bool keepFiles )
+        {
+            CleanupTemproaryFiles( localPath );
+
+            lock ( tempFilesLocker )
+            {
+                TempFileCollection tfc;
+                //if ( tempFileCollection.TryGetValue( localPath, out tfc ) )
+                   // return tfc;
+                var tempPath = Path.GetTempPath() + "SpaceEngeneers/Mods/CompiledScripts/" + localPath + "/";
+                if ( Directory.Exists( tempPath ) )
+                {
+                    // assuming as old trash
+                    var files = Directory.EnumerateFiles( tempPath );
+                    foreach ( var file in files )
+                    {
+                        try
+                        {
+                            File.Delete( file );
+                        }
+                        catch ( Exception )
+                        {
+
+                        }
+                    }
+                }
+                else
+                {
+                    Directory.CreateDirectory( tempPath );
+                }
+                tfc = new TempFileCollection( tempPath, keepFiles );
+                tempFileCollection[ localPath ] = tfc;
+                return tfc;
+            }
+        }
+
+        public static bool CompileFileModAPI(string assemblyName, string[] files, out Assembly assembly, List<string> errors, string localPath, bool enableDebugging )
         {
             Options.OutputAssembly = assemblyName;
             Options.GenerateInMemory = true;
@@ -177,19 +264,19 @@ namespace VRage.Compiler
             {
                 Options.IncludeDebugInformation = true;
             }
-            Options.TempFiles = new TempFileCollection( null, enableDebugging );
+            Options.TempFiles = GetTempFilesCollection( localPath, enableDebugging );
             string[] sources = UpdateCompatibility(files);
             var result = m_cp.CompileAssemblyFromSource(Options, sources);
             return CheckResultInternal(out assembly, errors, result, false);
         }
 
-        public static bool CompileStringIngame( string assemblyName, string[] source, out Assembly assembly, List<string> errors, bool enableDebugging )
+        public static bool CompileStringIngame( string assemblyName, string[] source, out Assembly assembly, List<string> errors, string localPath, bool enableDebugging )
         {
             Options.OutputAssembly = assemblyName;
             Options.GenerateInMemory = true;
             Options.GenerateExecutable = false;
             Options.IncludeDebugInformation = enableDebugging;
-            Options.TempFiles = new TempFileCollection( null, enableDebugging );
+            Options.TempFiles = GetTempFilesCollection( localPath, enableDebugging );
             var result = m_cp.CompileAssemblyFromSource(Options, source);
             return CheckResultInternal(out assembly, errors, result,true);
         }

@@ -593,7 +593,7 @@ public void Main(string argument) {{
             try
             {
                 Assembly temp = null;
-                MyGuiScreenEditor.CompileProgram(program, m_compilerErrors, ref temp);
+                MyGuiScreenEditor.CompileProgram(program, m_compilerErrors, ref temp, this.ToString() );
                 if (temp != null)
                 {
                     m_assembly = IlInjector.InjectCodeToAssembly("IngameScript_safe", temp, typeof(IlInjector).GetMethod("CountInstructions", BindingFlags.Public | BindingFlags.Static), typeof(IlInjector).GetMethod("CountMethodCalls", BindingFlags.Public | BindingFlags.Static));

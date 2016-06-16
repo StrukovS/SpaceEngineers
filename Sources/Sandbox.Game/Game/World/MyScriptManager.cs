@@ -132,11 +132,58 @@ namespace Sandbox.Game.World
 #endif
         }
 
-        private void Compile(IEnumerable<string> scriptFiles, string assemblyName, bool zipped, MyModContext context)
+        private string GetLocalPathForMod( MyModContext mod )
+        {
+            if ( mod.IsBaseGame )
+            {
+                return "BaseGame";
+            }
+            else
+            {
+                return string.IsNullOrEmpty( mod.ModPath ) ? "Unknown" : Path.GetFileNameWithoutExtension( mod.ModPath );
+            }
+        }
+
+        public void Unload()
+        {
+            if ( MySession.Static.CurrentPath != null )
+            {
+                var localPath = GetLocalPathForMod( MyModContext.BaseGame );
+                try
+                {
+                    IlCompiler.CleanupTemproaryFiles( localPath );
+                }
+                catch ( Exception e )
+                {
+                    MySandboxGame.Log.WriteLine( e );
+                }
+            }
+            if ( MySession.Static.Mods != null )
+            {
+                foreach ( var mod in MySession.Static.Mods )
+                {
+                    var mc = new MyModContext();
+                    mc.Init( mod );
+                    var localPath = GetLocalPathForMod( mc );
+                    try
+                    {
+                        IlCompiler.CleanupTemproaryFiles( localPath );
+                    }
+                    catch ( Exception e )
+                    {
+                        MySandboxGame.Log.WriteLine( e );
+                    }
+                }
+            }
+        }
+
+        private void Compile( IEnumerable<string> scriptFiles, string assemblyName, bool zipped, MyModContext context )
         {
 #if XB1
             System.Diagnostics.Debug.Assert(false, "Unsupported runtime script compilation on XB1.");
 #else
+            var localPath = GetLocalPathForMod( context  );
+
             Assembly assembly = null;
             bool compiled = false;
             if (zipped)
@@ -166,11 +213,11 @@ namespace Sandbox.Game.World
                         MyDefinitionErrors.Add(context, e.Message, TErrorSeverity.Error);
                     }
                 }
-                compiled = IlCompiler.CompileFileModAPI( assemblyName, m_cachedFiles.ToArray(), out assembly, m_errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
+                compiled = IlCompiler.CompileFileModAPI( assemblyName, m_cachedFiles.ToArray(), out assembly, m_errors, localPath, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
             }
             else
             {
-                compiled = IlCompiler.CompileFileModAPI( assemblyName, scriptFiles.ToArray(), out assembly, m_errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
+                compiled = IlCompiler.CompileFileModAPI( assemblyName, scriptFiles.ToArray(), out assembly, m_errors, localPath, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
             }
             Debug.Assert(compiled == (assembly != null), "Compile results inconsistency!");
             if (assembly != null && compiled)

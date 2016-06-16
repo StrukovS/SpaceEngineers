@@ -25,6 +25,7 @@ using Sandbox.Game.Gui;
 using System.Collections.Generic;
 using System.Text;
 using VRage.Win32;
+using VRage.Library;
 using VRage.Library.Utils;
 using VRage.FileSystem;
 using Sandbox;
@@ -50,8 +51,21 @@ namespace SpaceEngineers
             WinApi.MessageBox(new IntPtr(), text, caption, 0);
         }
 
+        //  program entry point wrapper with cleanup
+        static void Main( string[] args )
+        {
+            try
+            {
+                MainImpl( args );
+            }
+            finally
+            {
+                VRage.Compiler.IlCompiler.CleanupTemproaryFiles();
+            }
+        }
+
         //  Main method
-        static void Main(string[] args)
+        static void MainImpl(string[] args)
         {
             SpaceEngineersGame.SetupBasicGameInfo();
 

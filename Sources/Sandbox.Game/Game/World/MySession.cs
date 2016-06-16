@@ -2209,6 +2209,8 @@ namespace Sandbox.Game.World
             MyDynamicAABBTree.Dispose();
             MyDynamicAABBTreeD.Dispose();
 
+            ScriptManager.Unload();
+
             GC.Collect(2, GCCollectionMode.Forced);
 
             MySandboxGame.Log.WriteLine("MySession::Unload END");

@@ -150,7 +150,7 @@ namespace Sandbox.Game.Gui
             string code = Description.Text.ToString();
             m_compilerErrors.Clear();
             Assembly assembly = null;
-            if (CompileProgram(code, m_compilerErrors, ref assembly))
+            if (CompileProgram(code, m_compilerErrors, ref assembly, string.Empty ))
             {
                 MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
                    styleEnum: MyMessageBoxStyleEnum.Info,
@@ -221,12 +221,13 @@ namespace Sandbox.Game.Gui
             return error;
         }
 
-        public static bool CompileProgram(string program, List<string> errors,ref Assembly assembly)
+        public static bool CompileProgram(string program, List<string> errors,ref Assembly assembly, string localName )
         {
             if (program != null && program.Length > 0)
             {
                 string finalCode = CODE_WRAPPER_BEFORE + program + CODE_WRAPPER_AFTER;
-                if ( true == IlCompiler.CompileStringIngame( Path.Combine( MyFileSystem.UserDataPath, "IngameScript.dll" ), new string[] { finalCode }, out assembly, errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING ) )
+                var localPath = string.IsNullOrEmpty( localName ) ? "IngameScripts" : ( "IngameScripts/" + localName );
+                if ( true == IlCompiler.CompileStringIngame( Path.Combine( MyFileSystem.UserDataPath, "IngameScript.dll" ), new string[] { finalCode }, out assembly, errors, localPath, MyFakes.ENABLE_SCRIPTS_DEBUGGING ) )
                 {
                     return true;
                 }
