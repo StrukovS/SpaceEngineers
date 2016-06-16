@@ -153,23 +153,43 @@ namespace VRage.Compiler
             return sources;
         }
 
-        public static bool CompileFileModAPI(string assemblyName, string[] files, out Assembly assembly, List<string> errors)
+        /*
+        private static TempFileCollection sessionTempFileCollection = null;
+        public static TempFileCollection SessionTempFileCollection
+        {
+            get
+            {
+                if ( sessionTempFileCollection == null )
+                {
+                    var tempPath = Path.GetTempPath() + "SpaceEngeneers/TempScripts/";
+                    sessionTempFileCollection = new TempFileCollection( tempPath, false );
+                }
+                return TempFileCollection;
+            }
+        }
+         * */
+
+        public static bool CompileFileModAPI(string assemblyName, string[] files, out Assembly assembly, List<string> errors, bool enableDebugging )
         {
             Options.OutputAssembly = assemblyName;
             Options.GenerateInMemory = true;
-            Options.TempFiles = new TempFileCollection(null, false);
+            if ( enableDebugging )
+            {
+                Options.IncludeDebugInformation = true;
+            }
+            Options.TempFiles = new TempFileCollection( null, enableDebugging );
             string[] sources = UpdateCompatibility(files);
             var result = m_cp.CompileAssemblyFromSource(Options, sources);
             return CheckResultInternal(out assembly, errors, result, false);
         }
 
-        public static bool CompileStringIngame(string assemblyName, string[] source, out Assembly assembly, List<string> errors)
+        public static bool CompileStringIngame( string assemblyName, string[] source, out Assembly assembly, List<string> errors, bool enableDebugging )
         {
             Options.OutputAssembly = assemblyName;
             Options.GenerateInMemory = true;
             Options.GenerateExecutable = false;
-            Options.IncludeDebugInformation = false;
-            Options.TempFiles = new TempFileCollection(null, false);
+            Options.IncludeDebugInformation = enableDebugging;
+            Options.TempFiles = new TempFileCollection( null, enableDebugging );
             var result = m_cp.CompileAssemblyFromSource(Options, source);
             return CheckResultInternal(out assembly, errors, result,true);
         }

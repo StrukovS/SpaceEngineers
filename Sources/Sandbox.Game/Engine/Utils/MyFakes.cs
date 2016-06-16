@@ -686,5 +686,7 @@ namespace Sandbox.Engine.Utils
 
         public static bool ENABLE_PRELOAD_DEFINITIONS = true;
         public static bool ENABLE_ME_DOOR_COLLISION_CHECK = true;
+
+        public static bool ENABLE_SCRIPTS_DEBUGGING = true;
     }
 }

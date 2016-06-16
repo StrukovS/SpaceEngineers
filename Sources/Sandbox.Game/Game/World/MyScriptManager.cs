@@ -141,12 +141,13 @@ namespace Sandbox.Game.World
             bool compiled = false;
             if (zipped)
             {
-                var tmp = Path.GetTempPath();
-                foreach (var file in scriptFiles)
+                var tmp = Path.GetTempPath() + "SpaceEngeneers/Mods/Scripts/" + Path.GetFileNameWithoutExtension( context.ModId );
+
+                foreach ( var file in scriptFiles )
                 {
                     try
                     {
-                        var newPath = string.Format("{0}{1}", tmp, Path.GetFileName(file));
+                        var newPath = string.Format("{0}/{1}", tmp, Path.GetFileName(file));
                         var stream = MyFileSystem.OpenRead(file);
                         using (var sr = new StreamReader(stream))
                         {
@@ -165,11 +166,11 @@ namespace Sandbox.Game.World
                         MyDefinitionErrors.Add(context, e.Message, TErrorSeverity.Error);
                     }
                 }
-                compiled = IlCompiler.CompileFileModAPI(assemblyName, m_cachedFiles.ToArray(), out assembly, m_errors);
+                compiled = IlCompiler.CompileFileModAPI( assemblyName, m_cachedFiles.ToArray(), out assembly, m_errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
             }
             else
             {
-                compiled = IlCompiler.CompileFileModAPI(assemblyName, scriptFiles.ToArray(), out assembly, m_errors);
+                compiled = IlCompiler.CompileFileModAPI( assemblyName, scriptFiles.ToArray(), out assembly, m_errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING );
             }
             Debug.Assert(compiled == (assembly != null), "Compile results inconsistency!");
             if (assembly != null && compiled)

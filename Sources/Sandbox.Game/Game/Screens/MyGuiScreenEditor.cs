@@ -226,7 +226,7 @@ namespace Sandbox.Game.Gui
             if (program != null && program.Length > 0)
             {
                 string finalCode = CODE_WRAPPER_BEFORE + program + CODE_WRAPPER_AFTER;
-                if (true == IlCompiler.CompileStringIngame(Path.Combine(MyFileSystem.UserDataPath, "IngameScript.dll"), new string[] { finalCode }, out assembly, errors))
+                if ( true == IlCompiler.CompileStringIngame( Path.Combine( MyFileSystem.UserDataPath, "IngameScript.dll" ), new string[] { finalCode }, out assembly, errors, MyFakes.ENABLE_SCRIPTS_DEBUGGING ) )
                 {
                     return true;
                 }
