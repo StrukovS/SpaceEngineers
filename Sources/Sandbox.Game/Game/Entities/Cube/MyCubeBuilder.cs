@@ -3913,7 +3913,7 @@ namespace Sandbox.Game.Entities
         {
             bool warningShown = false;
 
-            if (newCurrentGrid != null && newCurrentGrid.IsRespawnGrid)
+            if ( newCurrentGrid != null && newCurrentGrid.IsRespawnGrid && MySession.Static.Settings.RespawnShipDelete )
             {
                 Sandbox.Game.Gui.MyHud.Notifications.Add(MyNotificationSingletons.RespawnShipWarning);
                 warningShown = true;

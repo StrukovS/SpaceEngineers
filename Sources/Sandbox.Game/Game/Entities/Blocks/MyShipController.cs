@@ -1173,7 +1173,7 @@ namespace Sandbox.Game.Entities
                 //if (MyGuiScreenGamePlay.Static != null)
                 //    MySession.Static.CameraAttachedToChanged += Static_CameraAttachedToChanged;
 
-                if (MySession.Static.Settings.RespawnShipDelete && CubeGrid.IsRespawnGrid)
+                if (MySession.Static.Settings.RespawnShipDelete && CubeGrid.IsRespawnGrid && MySession.Static.Settings.RespawnShipDelete )
                     MyHud.Notifications.Add(MyNotificationSingletons.RespawnShipWarning);
 
                 Static_CameraAttachedToChanged(null, null);
